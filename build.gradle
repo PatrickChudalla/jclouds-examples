@@ -1,0 +1,93 @@
+// Root project build configuration for multi-module project
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'application'
+
+    repositories {
+        mavenLocal()  // Include local Maven repository for jclouds development builds
+        mavenCentral()
+        maven {
+            url="https://artifacts.itemis.cloud/repository/maven"
+        }
+    }
+
+    dependencies {
+        // AWS SDK v2 BOM
+        implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+
+        // AWS SDK v2 Core services
+        implementation "software.amazon.awssdk:sts"
+        implementation "software.amazon.awssdk:auth"
+        implementation "software.amazon.awssdk:sso"
+        implementation "software.amazon.awssdk:ssooidc"
+        implementation "software.amazon.awssdk:regions"
+
+        // Common JClouds dependencies
+        implementation "org.apache.jclouds:jclouds-core:$jcloudsVersion"
+        implementation "org.apache.jclouds.driver:jclouds-slf4j:$jcloudsVersion"
+
+        implementation "com.google.guava:guava:33.0.0-jre"
+        implementation "ch.qos.logback:logback-classic:1.4.12"
+
+        // Testing dependencies
+        testImplementation "org.testcontainers:testcontainers:1.20.6"
+        testImplementation "org.testcontainers:localstack:1.20.6"
+        testImplementation "junit:junit:4.13.2"
+    }
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    // Get Docker host for TestContainers from current docker context
+    // Returns null if context is "default" or has no host configured
+    def getDockerHostForTestContainers = {
+        try {
+            // Get current context name
+            def contextName = providers.exec {
+                commandLine 'docker', 'context', 'show'
+            }.standardOutput.asText.get().trim()
+
+            // Skip if context is "default"
+            if (contextName == 'default') {
+                return null
+            }
+
+            // Get docker host from context
+            def dockerHost = providers.exec {
+                commandLine 'docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}'
+            }.standardOutput.asText.get().trim()
+
+            // Skip if no host configured
+            if (dockerHost == null || dockerHost.isEmpty() || dockerHost == '<no value>') {
+                return null
+            }
+
+            // Convert SSH URL to TCP URL for TestContainers
+            // From: ssh://user@host to: tcp://host:2375
+            def tcpHost = dockerHost.replaceAll(/ssh:\/\/[^@]+@/, 'tcp://') + ':2375'
+
+            return tcpHost
+        } catch (Exception e) {
+            // If docker command fails, return null to skip configuration
+            return null
+        }
+    }
+
+    test {
+        // Configure Docker host for TestContainers if needed
+        def dockerHost = getDockerHostForTestContainers()
+        if (dockerHost != null) {
+            environment 'DOCKER_HOST', dockerHost
+        }
+
+        // Increase test output for debugging
+        testLogging {
+            events = ["passed", "skipped", "failed"]
+            exceptionFormat = "full"
+            // Show test log output in build console
+            showStandardStreams = true
+        }
+    }
+}

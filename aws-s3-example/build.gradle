@@ -1,0 +1,78 @@
+dependencies {
+    // S3-specific JClouds provider
+    implementation "org.apache.jclouds.provider:aws-s3:$jcloudsVersion"
+}
+
+application {
+    mainClass = 'org.jclouds.examples.aws.s3.JcloudsS3Application'
+}
+
+// Authentication methods: Use -PauthMethod=<name> to select authentication method
+// Examples:
+//   ./gradlew :aws-s3-example:run -PauthMethod=classic
+//   ./gradlew :aws-s3-example:run -PauthMethod=sso
+//   ./gradlew :aws-s3-example:run -PauthMethod=irsa
+//   ./gradlew :aws-s3-example:run (defaults to 'irsa')
+
+run {
+    // Enable jclouds AWS credentials debug output (cannot be set in logback.xml due to static initialization order)
+    systemProperty "jclouds.aws.credentials.debug", "true"
+
+    def authMethod = project.hasProperty('authMethod') ? project.property('authMethod') : 'irsa'
+    switch (authMethod) {
+        case 'classic':
+            // Use static AWS CLI credentials from a classic CLI profile
+            def awsProfile = project.hasProperty('awsProfile') ? project.property('awsProfile') : project.property('classic.awsProfile')
+            def bucket = project.hasProperty('bucket') ? project.property('bucket') : project.property('classic.bucket')
+
+            println "Using classic AWS CLI profile: ${awsProfile}"
+
+            environment "AWS_PROFILE", awsProfile
+
+            args = [bucket]
+            break
+
+        case 'sso':
+            // Use temporary AWS CLI credentials from an SSO-enabled AWS CLI profile
+            def awsProfile = project.hasProperty('awsProfile') ? project.property('awsProfile') : project.property('sso.awsProfile')
+            def bucket = project.hasProperty('bucket') ? project.property('bucket') : project.property('sso.bucket')
+
+            println "Using SSO-enabled AWS CLI profile: ${awsProfile}"
+            println "Make sure you're logged in with 'aws sso login --profile ${awsProfile}' before running this"
+
+            environment "AWS_PROFILE", awsProfile
+
+            args = [bucket]
+            break
+
+        case 'irsa':
+            // Simulate IRSA environment with temporary credentials
+            def region = project.hasProperty('region') ? project.property('region') : project.property('irsa.region')
+            def roleArn = project.hasProperty('roleArn') ? project.property('roleArn') : project.property('irsa.roleArn')
+            def bucket = project.hasProperty('bucket') ? project.property('bucket') : project.property('irsa.bucket')
+            // Retrieve the web identity token using `kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/eks.amazonaws.com/serviceaccount/token"`
+            def webIdentityToken = project.hasProperty('webIdentityToken') ? project.property('webIdentityToken') : project.property('irsa.webIdentityToken')
+
+            def webIdentityTokenFile = File.createTempFile("web-identity-token", ".tmp")
+            webIdentityTokenFile.text = webIdentityToken
+            webIdentityTokenFile.deleteOnExit()
+
+            println "Using simulated IRSA environment with temporary credentials"
+            println "- AWS_REGION: ${region}"
+            println "- AWS_DEFAULT_REGION: ${region}"
+            println "- AWS_ROLE_ARN: ${roleArn}"
+            println "- AWS_WEB_IDENTITY_TOKEN_FILE: ${webIdentityTokenFile.absolutePath}"
+            println "Make sure you're NOT logged in with 'aws sso login --profile <profile-name>' or log out again using 'aws sso logout' before running this"
+
+            environment "AWS_REGION", region
+            environment "AWS_DEFAULT_REGION", region
+            environment "AWS_ROLE_ARN", roleArn
+            environment "AWS_WEB_IDENTITY_TOKEN_FILE", webIdentityTokenFile.absolutePath
+
+            args = [bucket]
+            break
+
+        default:
+            throw new GradleException("Unknown authentication method: ${authMethod}. Valid methods are: classic, sso, irsa")
+    }
+}

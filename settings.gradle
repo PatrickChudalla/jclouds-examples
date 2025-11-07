@@ -1,0 +1,4 @@
+rootProject.name = 'jclouds-examples'
+
+include 'aws-s3-example'
+include 'aws-rds-example'

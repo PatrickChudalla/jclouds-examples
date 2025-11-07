@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+bin/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Subproject-specific sensitive configuration (but NOT root gradle.properties)
+aws-s3-example/gradle.properties
+aws-rds-example/gradle.properties
+!**/gradle.properties.template

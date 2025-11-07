@@ -1,0 +1,18 @@
+# Authentication method defaults
+# Copy this file to gradle.properties and customize with your own values
+
+# Classic authentication
+classic.awsProfile=<AWS CLI profile name>
+classic.bucket=<AWS S3 bucket name>
+
+# SSO authentication
+sso.awsProfile=<AWS CLI profile name>
+sso.bucket=<AWS S3 bucket name>
+
+# IRSA authentication
+irsa.region=eu-central-1
+irsa.roleArn=arn:aws:iam::<AWS account ID>:role/<AWS IAM role name>
+irsa.bucket=<AWS S3 bucket name>
+# Retrieve web identity token using:
+# kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+irsa.webIdentityToken=<token>

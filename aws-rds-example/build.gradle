@@ -1,0 +1,8 @@
+dependencies {
+    // RDS-specific JClouds provider
+    implementation "org.apache.jclouds.provider:aws-rds:$jcloudsVersion"
+}
+
+application {
+    mainClass = 'org.jclouds.examples.aws.rds.JcloudsRdsApplication'
+}
