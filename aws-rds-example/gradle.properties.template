@@ -1,0 +1,21 @@
+# AWS RDS example option defaults
+# Copy this file to gradle.properties and customize with your own values
+
+# Direct database authentication with static username/password
+direct.jdbcUrl=jdbc:<database engine>://<database host>:<database port>/<database name>
+direct.dbUsername=<database username>
+direct.dbPassword=<database password>
+
+# AWS SSO Authentication (IAM db auth with SSO temporary credentials)
+sso.awsProfile=<AWS CLI profile name>
+sso.jdbcUrl=jdbc:<database engine>://<database host>:<database port>/<database name>
+sso.dbUsername=<database username>
+
+# IRSA Authentication (IAM db auth with IRSA temporary credentials)
+irsa.region=eu-central-1
+irsa.roleArn=arn:aws:iam::<AWS account ID>:role/<AWS IAM role name>
+irsa.jdbcUrl=jdbc:<database engine>://<database host>:<database port>/<database name>
+irsa.dbUsername=<database username>
+# Retrieve web identity token using:
+# kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+irsa.webIdentityToken=<token>

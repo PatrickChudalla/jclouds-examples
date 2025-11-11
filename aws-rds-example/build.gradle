@@ -1,8 +1,112 @@
 dependencies {
     // RDS-specific JClouds provider
     implementation "org.apache.jclouds.provider:aws-rds:$jcloudsVersion"
+
+    // AWS SDK for RDS (for IAM authentication token generation)
+    implementation 'software.amazon.awssdk:rds'
+
+    // PostgreSQL JDBC driver
+    runtimeOnly 'org.postgresql:postgresql:42.7.1'
 }
 
 application {
     mainClass = 'org.jclouds.examples.aws.rds.JcloudsRdsApplication'
+}
+
+// Authentication methods: Use -PauthMethod=<name> to select authentication method
+// Examples:
+//   ./gradlew :aws-rds-example:run -PauthMethod=direct
+//   ./gradlew :aws-rds-example:run -PauthMethod=sso
+//   ./gradlew :aws-rds-example:run -PauthMethod=irsa
+//   ./gradlew :aws-rds-example:run (defaults to 'direct')
+
+run {
+    // Skip configuration if this project's run task is not being executed
+    def runTaskPath = project.path + ':run'
+    def isRunningThisTask = gradle.startParameter.taskNames.any {
+        it == runTaskPath || it == 'run' && project == rootProject
+    }
+    if (!isRunningThisTask) {
+        return
+    }
+
+    def authMethod = project.hasProperty('authMethod') ? project.property('authMethod') : 'direct'
+    switch (authMethod) {
+        case 'direct':
+            // Direct database authentication with static username/password (no AWS creds, no IAM db auth)
+            // This bypasses IAM database authentication and uses traditional database credentials
+            def jdbcUrl = project.property('direct.jdbcUrl')
+            def dbUsername = project.property('direct.dbUsername')
+            def dbPassword = project.property('direct.dbPassword')
+
+            println "=== Direct Database Authentication (static username/password) ==="
+            println "IMPORTANT: This does NOT use IAM database authentication"
+            println "           Use -PauthMethod=sso or -PauthMethod=irsa for IAM db auth"
+
+            environment "DB_USERNAME", dbUsername
+            environment "DB_PASSWORD", dbPassword
+
+            println "================================================================="
+
+            args = [jdbcUrl]
+            break
+
+        case 'sso':
+            // Use AWS SSO profile to obtain temporary credentials
+            // SSO provides temporary credentials (access key + secret key + session token) via STS
+            // These temporary credentials are used for RDS IAM authentication token generation
+            def awsProfile = project.property('sso.awsProfile')
+            def jdbcUrl = project.property('sso.jdbcUrl')
+            def dbUsername = project.property('sso.dbUsername')
+
+            println "=== AWS SSO Authentication (IAM db auth with SSO temporary credentials) ==="
+            println "AWS Profile: ${awsProfile}"
+            println "IMPORTANT: Make sure you're logged in with 'aws sso login --profile ${awsProfile}' before running this"
+            println "SSO provides temporary credentials with session tokens for RDS IAM authentication"
+            println "==========================================================================="
+
+            environment "AWS_PROFILE", awsProfile
+            environment "DB_USERNAME", dbUsername
+
+            args = [jdbcUrl]
+            break
+
+        case 'irsa':
+            // Simulate IRSA (IAM Roles for Service Accounts) environment locally
+            // In real EKS pods, IRSA automatically provides these environment variables and tokens
+            // Here we manually set them to simulate the IRSA setup for local testing
+            // IRSA uses web identity token federation with AWS STS to assume an IAM role
+            // This provides temporary credentials (access key + secret key + session token) for RDS IAM auth
+            def region = project.property('irsa.region')
+            def roleArn = project.property('irsa.roleArn')
+            def jdbcUrl = project.property('irsa.jdbcUrl')
+            def dbUsername = project.property('irsa.dbUsername')
+            // Retrieve the web identity token using:
+            // kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+            def webIdentityToken = project.property('irsa.webIdentityToken')
+
+            def webIdentityTokenFile = File.createTempFile("web-identity-token", ".tmp")
+            webIdentityTokenFile.text = webIdentityToken
+            webIdentityTokenFile.deleteOnExit()
+
+            println "=== IRSA Authentication (IAM db auth with IRSA temporary credentials) ==="
+            println "AWS Region: ${region}"
+            println "IAM Role ARN: ${roleArn}"
+            println "Web Identity Token File: ${webIdentityTokenFile.absolutePath}"
+            println "IMPORTANT: Make sure you're NOT logged in with 'aws sso login' (run 'aws sso logout' if needed)"
+            println "IRSA uses web identity tokens to obtain temporary STS credentials for RDS IAM authentication"
+            println "========================================================================="
+
+            environment "AWS_REGION", region
+            environment "AWS_DEFAULT_REGION", region
+            environment "AWS_ROLE_ARN", roleArn
+            environment "AWS_WEB_IDENTITY_TOKEN_FILE", webIdentityTokenFile.absolutePath
+            environment "DB_USERNAME", dbUsername
+
+            args = [jdbcUrl]
+            break
+
+        default:
+            throw new GradleException("Unknown authentication method: ${authMethod}. Valid methods are: 'direct', 'sso', 'irsa'. Note: Classic AWS profiles with static credentials do NOT work with RDS IAM authentication - use SSO or IRSA for temporary credentials.")
+    }
 }

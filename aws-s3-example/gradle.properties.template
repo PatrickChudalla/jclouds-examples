@@ -1,4 +1,4 @@
-# Authentication method defaults
+# AWS S3 example option defaults
 # Copy this file to gradle.properties and customize with your own values
 
 # Classic authentication

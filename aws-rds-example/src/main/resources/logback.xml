@@ -5,15 +5,15 @@
     </root>
 
     <!-- Uncomment to enable detailed jclouds and AWS SDK logging for tests -->
-    <!-- <logger name="org.jclouds" level="DEBUG" />
+    <logger name="org.jclouds" level="DEBUG" />
     <logger name="jclouds.wire" level="DEBUG" />
     <logger name="jclouds.headers" level="DEBUG" />
     <logger name="jclouds.signature" level="DEBUG" />
     <logger name="software.amazon.awssdk" level="INFO"/>
-    <logger name="software.amazon.awssdk.auth.credentials" level="INFO"/> -->
+    <logger name="software.amazon.awssdk.auth.credentials" level="INFO"/>
 
     <!-- Your application code can still log at DEBUG level if needed -->
-    <!-- <logger name="org.jclouds.examples.aws.s3" level="INFO"/> -->
+    <!-- <logger name="org.jclouds.examples.aws.rds" level="INFO"/> -->
 
     <!-- Console appender -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

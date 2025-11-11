@@ -15,6 +15,15 @@ application {
 //   ./gradlew :aws-s3-example:run (defaults to 'irsa')
 
 run {
+    // Skip configuration if this project's run task is not being executed
+    def runTaskPath = project.path + ':run'
+    def isRunningThisTask = gradle.startParameter.taskNames.any {
+        it == runTaskPath || it == 'run' && project == rootProject
+    }
+    if (!isRunningThisTask) {
+        return
+    }
+
     // Enable jclouds AWS credentials debug output (cannot be set in logback.xml due to static initialization order)
     systemProperty "jclouds.aws.credentials.debug", "true"
 
@@ -22,10 +31,15 @@ run {
     switch (authMethod) {
         case 'classic':
             // Use static AWS CLI credentials from a classic CLI profile
-            def awsProfile = project.hasProperty('awsProfile') ? project.property('awsProfile') : project.property('classic.awsProfile')
-            def bucket = project.hasProperty('bucket') ? project.property('bucket') : project.property('classic.bucket')
+            // Note: Static credentials work for S3, but NOT for RDS IAM authentication
+            def awsProfile = project.property('classic.awsProfile')
+            def bucket = project.property('classic.bucket')
 
-            println "Using classic AWS CLI profile: ${awsProfile}"
+            println "=== Classic AWS CLI Profile Authentication ==="
+            println "AWS Profile: ${awsProfile}"
+            println "Credentials Type: Static (aws_access_key_id + aws_secret_access_key)"
+            println "NOTE: Static credentials work for S3 operations"
+            println "==============================================="
 
             environment "AWS_PROFILE", awsProfile
 
@@ -33,12 +47,16 @@ run {
             break
 
         case 'sso':
-            // Use temporary AWS CLI credentials from an SSO-enabled AWS CLI profile
-            def awsProfile = project.hasProperty('awsProfile') ? project.property('awsProfile') : project.property('sso.awsProfile')
-            def bucket = project.hasProperty('bucket') ? project.property('bucket') : project.property('sso.bucket')
+            // Use AWS SSO profile to obtain temporary credentials
+            // SSO provides temporary credentials (access key + secret key + session token) via STS
+            def awsProfile = project.property('sso.awsProfile')
+            def bucket = project.property('sso.bucket')
 
-            println "Using SSO-enabled AWS CLI profile: ${awsProfile}"
-            println "Make sure you're logged in with 'aws sso login --profile ${awsProfile}' before running this"
+            println "=== AWS SSO Authentication ==="
+            println "AWS Profile: ${awsProfile}"
+            println "IMPORTANT: Make sure you're logged in with 'aws sso login --profile ${awsProfile}' before running this"
+            println "SSO provides temporary credentials with session tokens"
+            println "=============================="
 
             environment "AWS_PROFILE", awsProfile
 
@@ -46,23 +64,29 @@ run {
             break
 
         case 'irsa':
-            // Simulate IRSA environment with temporary credentials
-            def region = project.hasProperty('region') ? project.property('region') : project.property('irsa.region')
-            def roleArn = project.hasProperty('roleArn') ? project.property('roleArn') : project.property('irsa.roleArn')
-            def bucket = project.hasProperty('bucket') ? project.property('bucket') : project.property('irsa.bucket')
-            // Retrieve the web identity token using `kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/eks.amazonaws.com/serviceaccount/token"`
-            def webIdentityToken = project.hasProperty('webIdentityToken') ? project.property('webIdentityToken') : project.property('irsa.webIdentityToken')
+            // Simulate IRSA (IAM Roles for Service Accounts) environment locally
+            // In real EKS pods, IRSA automatically provides these environment variables and tokens
+            // Here we manually set them to simulate the IRSA setup for local testing
+            // IRSA uses web identity token federation with AWS STS to assume an IAM role
+            // This provides temporary credentials (access key + secret key + session token)
+            def region = project.property('irsa.region')
+            def roleArn = project.property('irsa.roleArn')
+            def bucket = project.property('irsa.bucket')
+            // Retrieve the web identity token using:
+            // kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+            def webIdentityToken = project.property('irsa.webIdentityToken')
 
             def webIdentityTokenFile = File.createTempFile("web-identity-token", ".tmp")
             webIdentityTokenFile.text = webIdentityToken
             webIdentityTokenFile.deleteOnExit()
 
-            println "Using simulated IRSA environment with temporary credentials"
-            println "- AWS_REGION: ${region}"
-            println "- AWS_DEFAULT_REGION: ${region}"
-            println "- AWS_ROLE_ARN: ${roleArn}"
-            println "- AWS_WEB_IDENTITY_TOKEN_FILE: ${webIdentityTokenFile.absolutePath}"
-            println "Make sure you're NOT logged in with 'aws sso login --profile <profile-name>' or log out again using 'aws sso logout' before running this"
+            println "=== IRSA Authentication ==="
+            println "AWS Region: ${region}"
+            println "IAM Role ARN: ${roleArn}"
+            println "Web Identity Token File: ${webIdentityTokenFile.absolutePath}"
+            println "IMPORTANT: Make sure you're NOT logged in with 'aws sso login' (run 'aws sso logout' if needed)"
+            println "IRSA uses web identity tokens to obtain temporary STS credentials"
+            println "=========================="
 
             environment "AWS_REGION", region
             environment "AWS_DEFAULT_REGION", region

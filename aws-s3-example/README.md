@@ -22,21 +22,19 @@ Edit `gradle.properties` to set your AWS profiles, bucket names, role ARNs, and 
 
 The application supports multiple authentication methods that can be selected using Gradle project properties.
 
+**IMPORTANT**: Always use the project-specific task notation (`:aws-s3-example:run`) to avoid configuration conflicts with other example projects.
+
 ### Available Authentication Methods
 
 #### 1. Classic AWS CLI Profile (`classic`)
 
 Uses static AWS CLI credentials from a classic CLI profile.
 
+**Note**: Static credentials work for S3 operations, but NOT for RDS IAM authentication.
+
 ```bash
-# Use default profile 'playground-ci.agent'
+# Use default configuration from gradle.properties
 ./gradlew :aws-s3-example:run -PauthMethod=classic
-
-# Specify a different AWS CLI profile
-./gradlew :aws-s3-example:run -PauthMethod=classic -PawsProfile=my-profile
-
-# Override bucket name
-./gradlew :aws-s3-example:run -PauthMethod=classic -Pbucket=my-bucket-name
 ```
 
 #### 2. AWS SSO Profile (`sso`)
@@ -44,40 +42,45 @@ Uses static AWS CLI credentials from a classic CLI profile.
 Uses temporary credentials from an SSO-enabled AWS CLI profile. Make sure to authenticate first:
 
 ```bash
-# Authenticate with SSO
+# Authenticate with SSO first
 aws sso login --profile my-sso-profile
 
 # Run the application
-./gradlew :aws-s3-example:run -PauthMethod=sso -PawsProfile=my-sso-profile
+./gradlew :aws-s3-example:run -PauthMethod=sso
 ```
 
 #### 3. IRSA Simulation (`irsa`) - Default
 
-Simulates the IAM Roles for Service Accounts (IRSA) environment used in Kubernetes/EKS.
+Simulates the IAM Roles for Service Accounts (IRSA) environment used in Kubernetes/EKS. This is useful for testing EKS workloads locally.
 
 ```bash
-# Use default IRSA configuration
+# Make sure you're NOT logged in with AWS SSO (logout if needed)
+aws sso logout
+
+# Use default IRSA configuration (default authentication method)
 ./gradlew :aws-s3-example:run
 
 # Or explicitly specify the authentication method
 ./gradlew :aws-s3-example:run -PauthMethod=irsa
-
-# Override role ARN
-./gradlew :aws-s3-example:run -PauthMethod=irsa -ProleArn=arn:aws:iam::123456789012:role/my-role
-
-# Override AWS CLI profile for region lookup
-./gradlew :aws-s3-example:run -PauthMethod=irsa -PawsProfile=my-profile
 ```
 
-### Configuration Parameters
+### Configuration
 
-Each authentication method supports the following optional parameters:
+All authentication parameters are configured in `gradle.properties`. Copy `gradle.properties.template` to `gradle.properties` and customize with your values:
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `awsProfile` | AWS CLI profile name | Varies by authentication method |
-| `bucket` | S3 bucket name to use | Varies by authentication method |
-| `roleArn` | IAM role ARN (IRSA only) | `arn:aws:iam::144417869684:role/eks-analyze-sa-dev` |
+**Classic Authentication:**
+- **classic.awsProfile**: AWS CLI profile name
+- **classic.bucket**: S3 bucket name
+
+**SSO Authentication:**
+- **sso.awsProfile**: AWS CLI profile name
+- **sso.bucket**: S3 bucket name
+
+**IRSA Authentication:**
+- **irsa.region**: AWS region (e.g., `eu-central-1`)
+- **irsa.roleArn**: IAM role ARN (e.g., `arn:aws:iam::123456789012:role/my-role`)
+- **irsa.bucket**: S3 bucket name
+- **irsa.webIdentityToken**: Web identity token from EKS service account
 
 ## Running Tests
 

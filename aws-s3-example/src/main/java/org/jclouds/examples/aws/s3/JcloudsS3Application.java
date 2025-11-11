@@ -25,15 +25,21 @@ public class JcloudsS3Application {
         logger.info("Running Jclouds S3 real world example...");
 
         try {
+            String bucketName = args.length > 0 ? args[0] : "jclouds-playground";
+            String objectKey = "jclouds/hello.txt";
+            String content = "Hello, jclouds S3 on real AWS!";
+
+            logger.info("=== S3 Connection Configuration ===");
+            logger.info("- Provider: " + PROVIDER);
+            logger.info("- S3 Bucket: " + bucketName);
+            logger.info("- Authentication Method: Ambient AWS credentials (using AWS SDK default credential provider chain)");
+            logger.info("===================================");
+
             // Create BlobStore context for real AWS S3
             BlobStoreContext blobStoreContext = ContextBuilder.newBuilder(PROVIDER)
                 .modules(ImmutableSet.<Module>of(new SLF4JLoggingModule()))
                 .buildView(BlobStoreContext.class);
             BlobStore blobStore = blobStoreContext.getBlobStore();
-
-            String bucketName = args.length > 0 ? args[0] : "jclouds-playground";
-            String objectKey = "jclouds/hello.txt";
-            String content = "Hello, jclouds S3 on real AWS!";
 
             // Create bucket (container) in the specified region
             // Note: Bucket names must be globally unique across all AWS accounts
