@@ -41,7 +41,7 @@ Uses static database username/password authentication without AWS credentials or
 
 #### 2. AWS SSO with IAM Database Authentication (`sso`)
 
-Uses temporary AWS credentials from SSO to generate RDS IAM authentication tokens. The database user must be configured for IAM authentication in RDS.
+Uses temporary AWS credentials from SSO to generate RDS IAM authentication tokens. Before using this method, ensure all prerequisites in [Requirements for IAM Database Authentication](#requirements-for-iam-database-authentication) are met.
 
 **Important**: This method requires temporary AWS credentials with session tokens from AWS STS. Static AWS credentials do NOT work with RDS IAM authentication.
 
@@ -55,7 +55,7 @@ aws sso login --profile my-sso-profile
 
 #### 3. IRSA Simulation with IAM Database Authentication (`irsa`)
 
-Simulates the IAM Roles for Service Accounts (IRSA) environment used in Kubernetes/EKS. Uses web identity token federation to obtain temporary AWS credentials for RDS IAM authentication.
+Simulates the IAM Roles for Service Accounts (IRSA) environment used in Kubernetes/EKS. Uses web identity token federation to obtain temporary AWS credentials for RDS IAM authentication. Before using this method, ensure all prerequisites in [Requirements for IAM Database Authentication](#requirements-for-iam-database-authentication) are met.
 
 **Important**: This method requires temporary AWS credentials with session tokens from AWS STS. Static AWS credentials do NOT work with RDS IAM authentication.
 
@@ -100,8 +100,8 @@ IAM database authentication allows you to authenticate to your RDS database usin
 
 ### Requirements for IAM Database Authentication
 
-1. **RDS Instance**: Must have IAM database authentication enabled
-2. **Database User**: Must be created with IAM authentication grants:
+1. **RDS Instance**: Must have IAM database authentication enabled. See [Enabling and disabling IAM database authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.Enabling.html).
+2. **Database User**: Must be created with IAM authentication grants (see [Creating a database account using IAM authentication](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.DBAccounts.html)):
    ```sql
    -- PostgreSQL
    CREATE USER myuser;
@@ -110,7 +110,7 @@ IAM database authentication allows you to authenticate to your RDS database usin
    -- MySQL
    CREATE USER myuser IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS';
    ```
-3. **IAM Policy**: The IAM role/user must have permission to generate auth tokens:
+3. **IAM Role/User**: Must have permission to generate auth tokens (see [Creating and using an IAM policy for IAM database access](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.IAMPolicy.html)):
    ```json
    {
      "Effect": "Allow",
