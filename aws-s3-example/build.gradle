@@ -27,6 +27,12 @@ run {
     // Enable jclouds AWS credentials debug output (cannot be set in logback.xml due to static initialization order)
     systemProperty "jclouds.aws.credentials.debug", "true"
 
+    // Choose if bucket should be identified by prefixing the host name or the path of the request URI:
+    // "true" (default) -> use virtual-hosted-style requests: https://<bucket-name>.s3-<region-code>.amazonaws.com/<object-path>
+    // "false"          -> use path-style requests:           https://s3-<region-code>.amazonaws.com/<bucket-name>/<object-path>
+    // (see https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html for details)
+    // systemProperty "jclouds.s3.virtual-host-buckets", "false"
+
     def authMethod = project.hasProperty('authMethod') ? project.property('authMethod') : 'irsa'
     switch (authMethod) {
         case 'classic':
