@@ -1,0 +1,23 @@
+<configuration>
+    <!-- Set root level to INFO -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- Uncomment to enable detailed jclouds and Azure SDK logging -->
+    <!-- <logger name="org.jclouds" level="DEBUG" />
+    <logger name="jclouds.wire" level="DEBUG" />
+    <logger name="jclouds.headers" level="DEBUG" />
+    <logger name="jclouds.signature" level="DEBUG" />
+    <logger name="com.azure" level="DEBUG"/> -->
+
+    <!-- Your application code can still log at DEBUG level if needed -->
+    <!-- <logger name="org.jclouds.examples.azure.blob" level="DEBUG"/> -->
+
+    <!-- Console appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss} [%level] [%logger{36}:%line]: %msg%n</pattern>
+        </encoder>
+    </appender>
+</configuration>

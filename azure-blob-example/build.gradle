@@ -1,0 +1,66 @@
+dependencies {
+    // Azure Blob-specific JClouds provider
+    implementation "org.apache.jclouds.provider:azureblob:$jcloudsVersion"
+}
+
+application {
+    mainClass = 'org.jclouds.examples.azure.blob.JcloudsAzureBlobApplication'
+}
+
+// Authentication methods: Use -PauthMethod=<name> to select authentication method
+// Examples:
+//   ./gradlew :azure-blob-example:run -PauthMethod=connectionString
+//   ./gradlew :azure-blob-example:run -PauthMethod=accountKey
+//   ./gradlew :azure-blob-example:run (defaults to 'accountKey')
+
+run {
+    // Skip configuration if this project's run task is not being executed
+    def runTaskPath = project.path + ':run'
+    def isRunningThisTask = gradle.startParameter.taskNames.any {
+        it == runTaskPath || it == 'run' && project == rootProject
+    }
+    if (!isRunningThisTask) {
+        return
+    }
+
+    def authMethod = project.hasProperty('authMethod') ? project.property('authMethod') : 'accountKey'
+    switch (authMethod) {
+        case 'connectionString':
+            // Use Azure Storage connection string
+            // Connection string contains both account name and key
+            def connectionString = project.property('connectionString.value')
+            def container = project.property('connectionString.container')
+
+            println "=== Azure Connection String Authentication ==="
+            println "Connection String: ${connectionString.take(20)}..."
+            println "Container: ${container}"
+            println "NOTE: Connection string provides both account name and access key"
+            println "================================================="
+
+            environment "AZURE_STORAGE_CONNECTION_STRING", connectionString
+
+            args = [container]
+            break
+
+        case 'accountKey':
+            // Use Azure Storage account name and key
+            def accountName = project.property('accountKey.accountName')
+            def accountKey = project.property('accountKey.accountKey')
+            def container = project.property('accountKey.container')
+
+            println "=== Azure Storage Account Key Authentication ==="
+            println "Account Name: ${accountName}"
+            println "Account Key: ${accountKey.take(20)}..."
+            println "Container: ${container}"
+            println "================================================"
+
+            environment "AZURE_STORAGE_ACCOUNT", accountName
+            environment "AZURE_STORAGE_KEY", accountKey
+
+            args = [container]
+            break
+
+        default:
+            throw new GradleException("Unknown authentication method: ${authMethod}. Valid methods are: connectionString, accountKey")
+    }
+}

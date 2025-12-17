@@ -2,3 +2,5 @@ rootProject.name = 'jclouds-examples'
 
 include 'aws-s3-example'
 include 'aws-rds-example'
+include 'azure-blob-example'
+include 'azure-database-example'

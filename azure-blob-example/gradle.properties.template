@@ -1,0 +1,11 @@
+# Azure Blob Storage example option defaults
+# Copy this file to gradle.properties and customize with your own values
+
+# Connection String authentication
+connectionString.value=DefaultEndpointsProtocol=https;AccountName=<storage account name>;AccountKey=<storage account key>;EndpointSuffix=core.windows.net
+connectionString.container=<container name>
+
+# Account Key authentication
+accountKey.accountName=<storage account name>
+accountKey.accountKey=<storage account key>
+accountKey.container=<container name>

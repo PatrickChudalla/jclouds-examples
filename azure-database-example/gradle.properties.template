@@ -1,0 +1,23 @@
+# Azure Database example configuration template
+# Copy this file to gradle.properties and customize with your own values
+
+# Direct database authentication with static username/password
+direct.jdbcUrl=jdbc:postgresql://myserver.postgres.database.azure.com:5432/mydatabase?sslmode=require
+direct.dbUsername=admin
+direct.dbPassword=YourSecurePassword123!
+
+# Azure Managed Identity Authentication (Entra ID database auth)
+# This works when running on Azure resources (VM, App Service, Container, AKS, etc.)
+managedIdentity.jdbcUrl=jdbc:postgresql://myserver.postgres.database.azure.com:5432/mydatabase?sslmode=require
+managedIdentity.dbUsername=myManagedIdentityName
+# Optional: Specify client ID for user-assigned managed identity
+# managedIdentity.clientId=12345678-1234-1234-1234-123456789012
+
+# Azure Workload Identity Authentication (Entra ID database auth for AKS)
+workloadIdentity.jdbcUrl=jdbc:postgresql://myserver.postgres.database.azure.com:5432/mydatabase?sslmode=require
+workloadIdentity.dbUsername=myEntraIdUser
+workloadIdentity.tenantId=12345678-1234-1234-1234-123456789012
+workloadIdentity.clientId=12345678-1234-1234-1234-123456789012
+# Retrieve federated token using:
+# kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/azure/tokens/azure-identity-token"
+workloadIdentity.federatedToken=<federated-token-from-aks-pod>

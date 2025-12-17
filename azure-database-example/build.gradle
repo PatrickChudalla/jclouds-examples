@@ -1,0 +1,120 @@
+dependencies {
+    // Azure Database-specific JClouds provider (includes jclouds-datasource)
+    implementation "org.apache.jclouds.provider:azure-database:$jcloudsVersion"
+
+    // Azure SDK for Identity and Database management
+    implementation platform('com.azure:azure-sdk-bom:1.2.19')
+    implementation 'com.azure:azure-identity'
+    implementation 'com.azure:azure-security-keyvault-secrets'
+
+    // PostgreSQL JDBC driver
+    runtimeOnly 'org.postgresql:postgresql:42.7.1'
+
+    // MySQL JDBC driver (optional, for MySQL)
+    runtimeOnly 'com.mysql:mysql-connector-j:8.2.0'
+}
+
+application {
+    mainClass = 'org.jclouds.examples.azure.database.JcloudsAzureDatabaseApplication'
+}
+
+// Authentication methods: Use -PauthMethod=<name> to select authentication method
+// Examples:
+//   ./gradlew :azure-database-example:run -PauthMethod=direct
+//   ./gradlew :azure-database-example:run -PauthMethod=managed-identity
+//   ./gradlew :azure-database-example:run -PauthMethod=workload-identity
+//   ./gradlew :azure-database-example:run (defaults to 'direct')
+
+run {
+    // Skip configuration if this project's run task is not being executed
+    def runTaskPath = project.path + ':run'
+    def isRunningThisTask = gradle.startParameter.taskNames.any {
+        it == runTaskPath || it == 'run' && project == rootProject
+    }
+    if (!isRunningThisTask) {
+        return
+    }
+
+    def authMethod = project.hasProperty('authMethod') ? project.property('authMethod') : 'direct'
+    switch (authMethod) {
+        case 'direct':
+            // Direct database authentication with static username/password (no Azure creds, no Entra ID auth)
+            // This bypasses Azure Entra ID (formerly Azure AD) authentication and uses traditional database credentials
+            def jdbcUrl = project.property('direct.jdbcUrl')
+            def dbUsername = project.property('direct.dbUsername')
+            def dbPassword = project.property('direct.dbPassword')
+
+            println "=== Direct Database Authentication (static username/password) ==="
+            println "IMPORTANT: This does NOT use Azure Entra ID authentication"
+            println "           Use -PauthMethod=managed-identity or -PauthMethod=workload-identity for Entra ID auth"
+
+            environment "DB_USERNAME", dbUsername
+            environment "DB_PASSWORD", dbPassword
+
+            println "================================================================="
+
+            args = [jdbcUrl]
+            break
+
+        case 'managed-identity':
+            // Use Azure Managed Identity to obtain access tokens
+            // Managed Identity provides automatic authentication for Azure resources (VMs, App Service, etc.)
+            // These tokens are used for Azure Database Entra ID authentication
+            def jdbcUrl = project.property('managedIdentity.jdbcUrl')
+            def dbUsername = project.property('managedIdentity.dbUsername')
+            def clientId = project.hasProperty('managedIdentity.clientId') ?
+                project.property('managedIdentity.clientId') : ''
+
+            println "=== Azure Managed Identity Authentication (Entra ID database auth) ==="
+            println "IMPORTANT: This requires running on an Azure resource with Managed Identity enabled"
+            println "Managed Identity provides automatic authentication for passwordless database connections"
+            if (clientId) {
+                println "Client ID (User-assigned Managed Identity): ${clientId}"
+            } else {
+                println "Using System-assigned Managed Identity"
+            }
+            println "==========================================================================="
+
+            environment "DB_USERNAME", dbUsername
+            if (clientId) {
+                environment "AZURE_CLIENT_ID", clientId
+            }
+
+            args = [jdbcUrl]
+            break
+
+        case 'workload-identity':
+            // Simulate Azure Workload Identity environment (for AKS)
+            // In real AKS pods, Workload Identity automatically provides these environment variables and tokens
+            // Workload Identity uses federated identity credentials with Entra ID to authenticate
+            def jdbcUrl = project.property('workloadIdentity.jdbcUrl')
+            def dbUsername = project.property('workloadIdentity.dbUsername')
+            def tenantId = project.property('workloadIdentity.tenantId')
+            def clientId = project.property('workloadIdentity.clientId')
+            // Retrieve the federated token using:
+            // kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/azure/tokens/azure-identity-token"
+            def federatedToken = project.property('workloadIdentity.federatedToken')
+
+            def federatedTokenFile = File.createTempFile("azure-federated-token", ".tmp")
+            federatedTokenFile.text = federatedToken
+            federatedTokenFile.deleteOnExit()
+
+            println "=== Azure Workload Identity Authentication (Entra ID database auth) ==="
+            println "Tenant ID: ${tenantId}"
+            println "Client ID: ${clientId}"
+            println "Federated Token File: ${federatedTokenFile.absolutePath}"
+            println "IMPORTANT: Workload Identity uses federated credentials to obtain access tokens for Entra ID database authentication"
+            println "========================================================================="
+
+            environment "AZURE_TENANT_ID", tenantId
+            environment "AZURE_CLIENT_ID", clientId
+            environment "AZURE_FEDERATED_TOKEN_FILE", federatedTokenFile.absolutePath
+            environment "DB_USERNAME", dbUsername
+
+            args = [jdbcUrl]
+            break
+
+        default:
+            throw new GradleException("Unknown authentication method: ${authMethod}. Valid methods are: 'direct', 'managed-identity', 'workload-identity'.")
+    }
+}

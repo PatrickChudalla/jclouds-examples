@@ -1,4 +1,4 @@
-package org.jclouds.examples.aws.rds;
+package org.jclouds.examples.azure.database;
 
 import org.jclouds.ContextBuilder;
 import org.jclouds.datasource.DataSourceContext;
@@ -14,20 +14,22 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 
-public class JcloudsRdsApplication {
+public class JcloudsAzureDatabaseApplication {
 
-    // This is the only place where this application refers to a specific cloud provider (AWS RDS in this case)
-    private static final String PROVIDER = "aws-rds";
+    // This is the only place where this application refers to a specific cloud provider (Azure in this case)
+    private static final String PROVIDER = "azure-database";
 
-    private static final Logger logger = LoggerFactory.getLogger(JcloudsRdsApplication.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(JcloudsAzureDatabaseApplication.class.getName());
 
     public static void main(String[] args) {
-        logger.info("Running Jclouds RDS real world example...");
+        logger.info("Running Jclouds Azure Database real world example...");
 
         try {
-            // Example JDBC URL for RDS: jdbc:mysql://hostname:port/database
+            // Example JDBC URL for Azure Database:
+            // jdbc:postgresql://myserver.postgres.database.azure.com:5432/mydatabase?sslmode=require
+            // jdbc:mysql://myserver.mysql.database.azure.com:3306/mydatabase?useSSL=true
             String jdbcUrl = args.length > 0 ? args[0] :
-                "jdbc:mysql://my-rds-instance.us-east-1.rds.amazonaws.com:3306/mydb";
+                "jdbc:postgresql://myserver.postgres.database.azure.com:5432/mydatabase?sslmode=require";
 
             // Database username (identity) - from environment variable
             String username = System.getenv("DB_USERNAME");
@@ -36,25 +38,27 @@ public class JcloudsRdsApplication {
             }
 
             // Database password (credential) - from environment variable
-            // Can be empty string for IAM authentication
+            // Can be empty string for Azure Entra ID authentication
             String password = System.getenv("DB_PASSWORD");
             if (password == null) {
                 password = "";
             }
 
-            logger.info("=== RDS Connection Configuration ===");
+            logger.info("=== Azure Database Connection Configuration ===");
             logger.info("- Provider: " + PROVIDER);
             logger.info("- JDBC URL: " + jdbcUrl);
             logger.info("- Database User: " + username);
             if (password.isEmpty()) {
-                logger.info("- Authentication Method: IAM (database auth token generated from ambient temporary credentials enabling passwordless database connections according to underlying IAM roles)");
+                logger.info("- Authentication Method: Azure Entra ID (access token generated from ambient credentials enabling passwordless database connections)");
             } else {
                 logger.info("- Authentication Method: Password (static database password provided)");
                 logger.info("- Database Password: " + (password.length() > 0 ? password.substring(0, Math.min(8, password.length())) + "..." : "(empty)"));
             }
-            logger.info("====================================");
+            logger.info("===============================================");
 
-            // Create DataSource context for AWS RDS
+            // Create DataSource context
+            // Note: Since jClouds doesn't have native Azure Database support, we use a generic approach
+            // The actual Azure authentication happens through the Azure Identity SDK in the DataSource configuration
             DataSourceContext dataSourceContext = ContextBuilder.newBuilder(PROVIDER)
                 .endpoint(jdbcUrl)
                 .credentials(username, password)
@@ -83,11 +87,11 @@ public class JcloudsRdsApplication {
                 logger.info("- Connection valid: " + connection.isValid(5));
                 logger.info("=======================================");
 
-                logger.info("Successfully connected to RDS database!");
+                logger.info("Successfully connected to Azure database!");
             }
 
             dataSourceContext.close();
-            logger.info("Jclouds RDS real world example completed successfully!");
+            logger.info("Jclouds Azure Database real world example completed successfully!");
 
         } catch (Exception e) {
             logger.error("ERROR: " + e.getMessage(), e);
