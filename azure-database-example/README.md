@@ -95,17 +95,60 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
 
 ### Requirements for Azure Entra ID Authentication
 
-1. **Azure Database Instance**: Must have Entra ID authentication enabled. See [Configure and manage Azure AD authentication](https://learn.microsoft.com/en-us/azure/postgresql/single-server/how-to-configure-sign-in-azure-ad-authentication).
+1. **Azure Database Instance**: Must have Entra ID authentication enabled. See [Configure and manage Entra ID authentication](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-configure-sign-in-azure-ad-authentication).
 
-2. **Database User**: Must be created as an Entra ID user:
+2. **Entra ID Admin Setup**: Set up an Entra ID admin for your database server:
+   ```bash
+   # Get your user details
+   USER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
+   USER_EMAIL=$(az ad signed-in-user show --query userPrincipalName -o tsv)
+
+   # Get your resource group
+   RG=$(az postgres flexible-server list --query "[?fullyQualifiedDomainName=='your-server.postgres.database.azure.com'].resourceGroup" -o tsv)
+
+   SERVER_NAME=<your-server>
+
+   # Enable Entra ID authentication (keep password auth enabled for initial admin access)
+   az postgres flexible-server update \
+     --resource-group $RG \
+     --name $SERVER_NAME \
+     --microsoft-entra-auth Enabled \
+     --password-auth Enabled
+
+   # Create Entra ID admin
+   az postgres flexible-server microsoft-entra-admin create \
+     --resource-group $RG \
+     --server-name $SERVER_NAME \
+     --object-id $USER_OBJECT_ID \
+     --display-name "$USER_EMAIL"
+   ```
+
+   **Note**: You may need to delete an existing Entra ID admin first if one is already configured:
+   ```bash
+   # Delete existing Entra ID admin (if needed)
+   az postgres flexible-server microsoft-entra-admin delete \
+     --resource-group $RG \
+     --server-name $SERVER_NAME
+   ```
+
+3. **Database User**: Must be created as an Entra ID user:
+   ```bash
+   # Connect to the database using Entra ID token
+   ACCESS_TOKEN=$(az account get-access-token --resource https://ossrdbms-aad.database.windows.net --query accessToken -o tsv)
+   PGPASSWORD=$ACCESS_TOKEN psql "host=your-server.postgres.database.azure.com port=5432 dbname=your-database user=$USER_EMAIL sslmode=require"
+   ```
+
    ```sql
-   -- PostgreSQL: Connect as Entra ID admin user and run:
-   SELECT * FROM pgaadauth_create_principal('<user-or-identity-name>', false, false);
-   GRANT ALL PRIVILEGES ON DATABASE mydatabase TO "<user-or-identity-name>";
+   -- PostgreSQL: Create Entra ID user and grant permissions
+   CREATE ROLE "user-or-identity-name@domain.com" WITH LOGIN;
+   GRANT ALL PRIVILEGES ON DATABASE mydatabase TO "user-or-identity-name@domain.com";
+   GRANT ALL ON SCHEMA public TO "user-or-identity-name@domain.com";
+   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "user-or-identity-name@domain.com";
+   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "user-or-identity-name@domain.com";
 
    -- MySQL: Connect as Entra ID admin user and run:
-   CREATE AADUSER '<user-or-identity-name>';
-   GRANT ALL PRIVILEGES ON mydatabase.* TO '<user-or-identity-name>'@'%';
+   CREATE AADUSER 'user-or-identity-name@domain.com';
+   GRANT ALL PRIVILEGES ON mydatabase.* TO 'user-or-identity-name@domain.com'@'%';
    ```
 
 3. **Azure Identity**:
@@ -187,7 +230,7 @@ The `JcloudsAzureDatabaseApplication` demonstrates Azure Database connectivity:
 
 **"Access denied for user"**:
 - For direct auth: Check username/password
-- For Entra ID auth: Verify the user is created with `pgaadauth_create_principal` (PostgreSQL) or `CREATE AADUSER` (MySQL)
+- For Entra ID auth: Verify the user is created with `CREATE ROLE` (PostgreSQL) or `CREATE AADUSER` (MySQL) as shown in the setup instructions above
 
 **"Cannot obtain access token"**:
 - Verify the Azure identity has appropriate permissions
@@ -232,7 +275,7 @@ While this example follows a similar structure to the AWS RDS example, there are
 | **Token Generation** | `RdsIamAuthTokenGenerator` | Azure Identity SDK |
 | **Credentials** | AWS credentials (SSO, IRSA) | Azure credentials (Managed Identity, Workload Identity) |
 | **Token Validity** | 15 minutes | Variable (typically 60 minutes) |
-| **Database Setup** | `GRANT rds_iam TO user` | `pgaadauth_create_principal()` |
+| **Database Setup** | `GRANT rds_iam TO user` | `CREATE ROLE "user" WITH LOGIN` |
 | **K8s Identity** | IRSA (IAM Roles for Service Accounts) | Workload Identity |
 
 ## Additional Resources
