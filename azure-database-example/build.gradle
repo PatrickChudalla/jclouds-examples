@@ -91,24 +91,30 @@ run {
             def dbUsername = project.property('workloadIdentity.dbUsername')
             def tenantId = project.property('workloadIdentity.tenantId')
             def clientId = project.property('workloadIdentity.clientId')
-            // Retrieve the federated token using:
-            // kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/azure/tokens/azure-identity-token"
-            def federatedToken = project.property('workloadIdentity.federatedToken')
 
-            def federatedTokenFile = File.createTempFile("azure-federated-token", ".tmp")
-            federatedTokenFile.text = federatedToken
-            federatedTokenFile.deleteOnExit()
+            // Check if running in AKS with Workload Identity (token file already exists)
+            def federatedTokenFilePath = System.getenv('AZURE_FEDERATED_TOKEN_FILE')
+            if (!federatedTokenFilePath) {
+                // Not in AKS - use token from gradle.properties for local testing
+                // Retrieve the federated token using:
+                // kubectl exec <pod-name> -- bash -c "cat /var/run/secrets/azure/tokens/azure-identity-token"
+                def federatedToken = project.property('workloadIdentity.federatedToken')
+                def federatedTokenFile = File.createTempFile("azure-federated-token", ".tmp")
+                federatedTokenFile.text = federatedToken
+                federatedTokenFile.deleteOnExit()
+                federatedTokenFilePath = federatedTokenFile.absolutePath
+            }
 
             println "=== Azure Workload Identity Authentication (Entra ID database auth) ==="
             println "Tenant ID: ${tenantId}"
             println "Client ID: ${clientId}"
-            println "Federated Token File: ${federatedTokenFile.absolutePath}"
+            println "Federated Token File: ${federatedTokenFilePath}"
             println "IMPORTANT: Workload Identity uses federated credentials to obtain access tokens for Entra ID database authentication"
             println "========================================================================="
 
             environment "AZURE_TENANT_ID", tenantId
             environment "AZURE_CLIENT_ID", clientId
-            environment "AZURE_FEDERATED_TOKEN_FILE", federatedTokenFile.absolutePath
+            environment "AZURE_FEDERATED_TOKEN_FILE", federatedTokenFilePath
             environment "DB_USERNAME", dbUsername
 
             args = [jdbcUrl]
