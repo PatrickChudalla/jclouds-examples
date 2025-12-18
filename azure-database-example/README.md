@@ -41,7 +41,7 @@ Uses static database username/password authentication without Azure credentials 
 
 #### 2. Azure Managed Identity (`managed-identity`)
 
-Uses Azure Managed Identity to automatically obtain access tokens. This method works when running on Azure resources (VMs, App Service, Container Instances, AKS, etc.) with Managed Identity enabled. Before using this method, ensure all prerequisites in [Requirements for Azure Entra ID Authentication](#requirements-for-azure-entra-id-authentication) are met.
+Uses Azure Managed Identity to automatically obtain access tokens. This method works when running on Azure resources (VMs, App Service, Container Instances, AKS, etc.) with Managed Identity enabled. Before using this method, ensure all prerequisites in [Azure Entra ID Managed Identity Authentication](#azure-entra-id-managed-identity-authentication) are met.
 
 **Important**: This requires running on an Azure resource with Managed Identity configured.
 
@@ -52,7 +52,7 @@ Uses Azure Managed Identity to automatically obtain access tokens. This method w
 
 #### 3. Azure Workload Identity (`workload-identity`)
 
-Simulates the Azure Workload Identity environment used in Azure Kubernetes Service (AKS). Uses federated identity credentials to obtain access tokens for Entra ID authentication. Before using this method, ensure all prerequisites in [Requirements for Azure Entra ID Authentication](#requirements-for-azure-entra-id-authentication) are met.
+Simulates the Azure Workload Identity environment used in Azure Kubernetes Service (AKS). Uses federated identity credentials to obtain access tokens for Entra ID authentication. Before using this method, ensure all prerequisites in [Requirements for Azure Entra ID Workload Identity Authentication](#requirements-for-azure-entra-id-workload-identity-authentication) are met.
 
 **Important**: This requires federated identity credentials configured in Azure Entra ID.
 
@@ -82,20 +82,24 @@ All authentication parameters are configured in `gradle.properties`. Copy `gradl
 - **workloadIdentity.clientId**: Application (client) ID of the user-assigned managed identity
 - **workloadIdentity.federatedToken**: Federated identity token from AKS
 
-## Azure Entra ID Authentication
+## Azure Entra ID Managed Identity Authentication
 
-### What is Azure Entra ID Authentication?
+### What is Azure Entra ID Managed Identity Authentication?
 
-Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to your Azure Database using Azure identity credentials instead of a database password. This provides several benefits:
+Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to your Azure Database using Azure identity credentials instead of a database password. 
 
-- **No password management**: Passwords are replaced with short-lived access tokens
-- **Centralized access control**: Use Azure RBAC to control database access
-- **Audit trail**: All authentication attempts are logged in Azure Monitor
-- **Enhanced security**: Supports Managed Identity and Workload Identity
-
-### Requirements for Azure Entra ID Authentication
+### Requirements for Azure Entra ID Managed Identity Authentication
 
 1. **Azure Database Instance**: Must have Entra ID authentication enabled. See [Configure and manage Entra ID authentication](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-configure-sign-in-azure-ad-authentication).
+
+   ```bash
+   # Enable Entra ID authentication (keep password auth enabled for initial admin access)
+   az postgres flexible-server update \
+     --resource-group $RG \
+     --name $SERVER_NAME \
+     --microsoft-entra-auth Enabled \
+     --password-auth Enabled
+   ```
 
 2. **Entra ID Admin Setup**: Set up an Entra ID admin for your database server:
    ```bash
@@ -107,13 +111,6 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
    RG=$(az postgres flexible-server list --query "[?fullyQualifiedDomainName=='your-server.postgres.database.azure.com'].resourceGroup" -o tsv)
 
    SERVER_NAME=<your-server>
-
-   # Enable Entra ID authentication (keep password auth enabled for initial admin access)
-   az postgres flexible-server update \
-     --resource-group $RG \
-     --name $SERVER_NAME \
-     --microsoft-entra-auth Enabled \
-     --password-auth Enabled
 
    # Create Entra ID admin
    az postgres flexible-server microsoft-entra-admin create \
@@ -158,127 +155,8 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
 4. **Azure Role Assignment**: The identity must have appropriate permissions to access the database:
    - Assign the identity appropriate database roles using the SQL commands above
 
-### How It Works
 
-When using `managed-identity` or `workload-identity` authentication methods:
-
-1. The application obtains an access token from Azure Entra ID using the configured identity
-2. The access token is used as the database password
-3. The Azure Database validates the token with Entra ID
-4. HikariCP connection pool automatically refreshes tokens as needed
-
-### Authentication Flow Details
-
-**Managed Identity:**
-- Azure provides an IMDS (Instance Metadata Service) endpoint on the VM/container
-- The Azure Identity SDK calls this endpoint to get access tokens
-- No credentials need to be stored in the application
-
-**Workload Identity:**
-- AKS injects a federated token into the pod at `/var/run/secrets/azure/tokens/azure-identity-token`
-- The Azure Identity SDK exchanges this token for an Entra ID access token
-- The access token is used to authenticate to the database
-
-## Project Structure
-
-```
-azure-database-example/
-├── src/
-│   └── main/
-│       ├── java/
-│       │   └── org/jclouds/examples/azure/database/
-│       │       └── JcloudsAzureDatabaseApplication.java
-│       └── resources/
-│           └── logback.xml
-├── build.gradle
-├── gradle.properties.template
-└── README.md
-```
-
-## What the Application Does
-
-The `JcloudsAzureDatabaseApplication` demonstrates Azure Database connectivity:
-
-1. Creates a DataSource context with authentication method (direct, managed-identity, or workload-identity)
-2. Connects to the Azure Database using HikariCP connection pool
-3. Executes metadata queries to verify connectivity
-4. Displays connection information and results
-
-## Troubleshooting
-
-### Authentication Issues
-
-**Direct Method:**
-- Verify JDBC URL, username, and password in `gradle.properties`
-- Check Azure Database firewall rules allow connections from your IP
-- Verify database user exists and has appropriate permissions
-- Ensure SSL is properly configured (`sslmode=require` for PostgreSQL, `useSSL=true` for MySQL)
-
-**Managed Identity Method:**
-- Verify Managed Identity is enabled on your Azure resource
-- Check that the identity has been added as a database user
-- Ensure the identity has appropriate permissions
-- Verify you're running on an Azure resource (VM, App Service, Container, etc.)
-
-**Workload Identity Method:**
-- Verify federated identity credentials are configured correctly
-- Check that the service account is properly annotated in AKS
-- Ensure the federated token is valid and not expired
-- Verify the identity has been added as a database user
-
-### Common Errors
-
-**"Access denied for user"**:
-- For direct auth: Check username/password
-- For Entra ID auth: Verify the user is created with `CREATE ROLE` (PostgreSQL) or `CREATE AADUSER` (MySQL) as shown in the setup instructions above
-
-**"Cannot obtain access token"**:
-- Verify the Azure identity has appropriate permissions
-- Check that Entra ID authentication is enabled on the database
-- Ensure network connectivity to Azure Entra ID endpoints
-
-**"Connection timeout"**:
-- Check Azure Database firewall rules
-- Verify the JDBC URL is correct
-- Ensure your network can reach the Azure Database endpoint
-- Check that SSL/TLS is properly configured
-
-**"SSL connection required"**:
-- Add `sslmode=require` to PostgreSQL JDBC URL
-- Add `useSSL=true` to MySQL JDBC URL
-- Verify SSL certificates are properly configured
-
-### Debug Mode
-
-To see detailed credential resolution and database connection logging, uncomment the relevant logger configurations in `src/main/resources/logback.xml`:
-
-```xml
-<logger name="org.jclouds" level="DEBUG" />
-<logger name="com.azure" level="DEBUG"/>
-<logger name="com.azure.identity" level="DEBUG"/>
-<logger name="com.zaxxer.hikari" level="DEBUG"/>
-```
-
-This will output detailed information about:
-- Azure credential provider resolution
-- Access token acquisition
-- Database connection pool behavior
-- SQL query execution
-
-## Differences from AWS RDS Example
-
-While this example follows a similar structure to the AWS RDS example, there are key differences:
-
-| Feature | AWS RDS | Azure Database |
-|---------|---------|----------------|
-| **IAM Auth** | IAM Database Authentication | Azure Entra ID Authentication |
-| **Token Generation** | `RdsIamAuthTokenGenerator` | Azure Identity SDK |
-| **Credentials** | AWS credentials (SSO, IRSA) | Azure credentials (Managed Identity, Workload Identity) |
-| **Token Validity** | 15 minutes | Variable (typically 60 minutes) |
-| **Database Setup** | `GRANT rds_iam TO user` | `CREATE ROLE "user" WITH LOGIN` |
-| **K8s Identity** | IRSA (IAM Roles for Service Accounts) | Workload Identity |
-
-## Testing Workload Identity in AKS
+## Requirements for Azure Entra ID Workload Identity Authentication
 
 This section describes how to test the Workload Identity authentication method in a real Azure Kubernetes Service (AKS) cluster.
 
@@ -317,7 +195,23 @@ az aks update \
 az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME
 ```
 
-### Step 2: Create User-Assigned Managed Identity
+### Step 2: Enable PostgreSQL Entra ID Authentication
+
+Must have Entra ID authentication enabled. See [Configure and manage Entra ID authentication](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-configure-sign-in-azure-ad-authentication).
+
+```bash
+# Set your PostgreSQL server name
+SERVER_NAME="your-postgres-server"
+
+# Enable Entra ID authentication (keep password auth enabled for initial admin access)
+az postgres flexible-server update \
+  --resource-group $RESOURCE_GROUP \
+  --name $SERVER_NAME \
+  --microsoft-entra-auth Enabled \
+  --password-auth Enabled
+```
+
+### Step 3: Create User-Assigned Managed Identity
 
 ```bash
 # Create the managed identity
@@ -337,7 +231,7 @@ echo "Principal ID: $PRINCIPAL_ID"
 echo "Tenant ID: $TENANT_ID"
 ```
 
-### Step 3: Register Managed Identity as Database Admin
+### Step 4: Register Managed Identity as Database Admin
 
 **IMPORTANT**: Managed Identities cannot be added to Azure Database as regular users with `CREATE ROLE`. They must be registered as Entra ID administrators using the Azure CLI:
 
@@ -362,7 +256,7 @@ az postgres flexible-server microsoft-entra-admin show \
 
 This command automatically creates the database user with the correct configuration for token-based authentication.
 
-### Step 4: Create Kubernetes Service Account
+### Step 5: Create Kubernetes Service Account
 
 ```bash
 # Create namespace (optional, or use 'default')
@@ -380,7 +274,7 @@ metadata:
 EOF
 ```
 
-### Step 5: Create Federated Identity Credential
+### Step 6: Create Federated Identity Credential
 
 ```bash
 # Get AKS OIDC issuer URL
@@ -407,7 +301,7 @@ az identity federated-credential show \
 
 **Important**: The `subject` must exactly match the format `system:serviceaccount:<namespace>:<service-account-name>`.
 
-### Step 6: Configure Database Firewall
+### Step 7: Configure Database Firewall
 
 ```bash
 # Allow Azure services to access the database
@@ -428,7 +322,7 @@ az postgres flexible-server firewall-rule create \
   --end-ip-address $MY_IP
 ```
 
-### Step 7: Deploy Test Pod
+### Step 8: Deploy Test Pod
 
 ```bash
 # Set your database connection details
@@ -462,7 +356,7 @@ EOF
 kubectl wait --for=condition=Ready pod/jclouds-db-test -n $NAMESPACE --timeout=60s
 ```
 
-### Step 8: Install Dependencies in Pod
+### Step 9: Install Dependencies in Pod
 
 ```bash
 # Install git, gradle, and azure-cli
@@ -479,7 +373,7 @@ curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 '
 ```
 
-### Step 9: Clone and Build jClouds
+### Step 10: Clone and Build jClouds
 
 ```bash
 # Clone repositories
@@ -497,7 +391,7 @@ cd /root/jclouds
 '
 ```
 
-### Step 10: Configure and Run Test
+### Step 11: Configure and Run Test
 
 ```bash
 # Configure gradle.properties for workload identity
@@ -521,87 +415,6 @@ cd /root/jclouds-examples
 source "$HOME/.sdkman/bin/sdkman-init.sh"
 ./gradlew :azure-database-example:run -PauthMethod=workload-identity
 '
-```
-
-### Expected Output
-
-If everything is configured correctly, you should see:
-
-```
-> Task :azure-database-example:run
-Running Jclouds Azure Database real world example...
-=== Azure Database Connection Configuration ===
-- Provider: azure-database
-- JDBC URL: jdbc:postgresql://your-server.postgres.database.azure.com:5432/platformdb?sslmode=require
-- Database User: jclouds-db-workload-identity
-- Authentication Method: Azure Entra ID (access token generated from ambient credentials)
-===============================================
-
-DataSource created successfully!
-Attempting to establish database connection...
-
-=== Database Connection Information ===
-- Database Product: PostgreSQL
-- Database Version: 15.15
-- Driver Name: PostgreSQL JDBC Driver
-- Driver Version: 42.7.1
-- JDBC URL: jdbc:postgresql://your-server.postgres.database.azure.com:5432/platformdb?sslmode=require
-- Username: jclouds-db-workload-identity
-- Connection valid: true
-=======================================
-
-Successfully connected to Azure database!
-
-BUILD SUCCESSFUL
-```
-
-### Troubleshooting AKS Workload Identity
-
-**"Couldn't acquire access token from Workload Identity"**:
-- Verify federated credential subject matches exactly: `system:serviceaccount:<namespace>:<sa-name>`
-- Check the OIDC issuer URL is correct
-- Ensure the service account has the correct annotation
-
-**"password authentication failed for user"**:
-- The managed identity must be registered as an Entra ID admin using the Azure CLI
-- DO NOT use `CREATE ROLE` for managed identities - it won't work
-- Verify with: `az postgres flexible-server microsoft-entra-admin list`
-
-**Pod doesn't have federated token**:
-- Check pod has label: `azure.workload.identity/use: "true"`
-- Verify serviceAccountName is correct
-- Check if `/var/run/secrets/azure/tokens/azure-identity-token` exists in pod
-
-**Firewall issues**:
-- Ensure firewall rule `0.0.0.0` to `0.0.0.0` exists (allows Azure services)
-- AKS pods connect from Azure internal IPs
-
-### Cleanup
-
-```bash
-# Delete pod
-kubectl delete pod jclouds-db-test -n $NAMESPACE
-
-# Delete service account
-kubectl delete serviceaccount jclouds-db-sa -n $NAMESPACE
-
-# Delete federated credential
-az identity federated-credential delete \
-  --name "jclouds-db-federated-credential" \
-  --identity-name $IDENTITY_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --yes
-
-# Delete managed identity
-az identity delete \
-  --name $IDENTITY_NAME \
-  --resource-group $RESOURCE_GROUP
-
-# Remove database admin (optional)
-az postgres flexible-server microsoft-entra-admin delete \
-  --resource-group $RESOURCE_GROUP \
-  --server-name $SERVER_NAME \
-  --yes
 ```
 
 ## Additional Resources
