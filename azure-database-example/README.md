@@ -80,15 +80,13 @@ All authentication parameters are configured in `gradle.properties`. Copy `gradl
 - **workloadIdentity.dbUsername**: Database username (must be an Entra ID user)
 - **workloadIdentity.tenantId**: Azure Entra ID tenant ID
 - **workloadIdentity.clientId**: Application (client) ID of the user-assigned managed identity
-- **workloadIdentity.federatedToken**: Federated identity token from AKS
-
 ## Azure Entra ID Managed Identity Authentication
 
 ### What is Azure Entra ID Managed Identity Authentication?
 
-Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to your Azure Database using Azure identity credentials instead of a database password. 
+Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to your Azure Database using Azure identity credentials instead of a database password. The following can be done from the Azure Cloud Shell environemnt.
 
-### Requirements for Azure Entra ID Managed Identity Authentication
+### Azure Entra ID Managed Identity Authentication
 
 1. **Azure Database Instance**: Must have Entra ID authentication enabled. See [Configure and manage Entra ID authentication](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-configure-sign-in-azure-ad-authentication).
 
@@ -106,11 +104,11 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
    # Get your user details
    USER_OBJECT_ID=$(az ad signed-in-user show --query id -o tsv)
    USER_EMAIL=$(az ad signed-in-user show --query userPrincipalName -o tsv)
+   SERVER_NAME=<your-server-name>
+   SERVER_HOST=<your-server-fqdn>
 
    # Get your resource group
-   RG=$(az postgres flexible-server list --query "[?fullyQualifiedDomainName=='your-server.postgres.database.azure.com'].resourceGroup" -o tsv)
-
-   SERVER_NAME=<your-server>
+   RG=$(az postgres flexible-server list --query "[?fullyQualifiedDomainName=='$SERVER_HOST'].resourceGroup" -o tsv)
 
    # Create Entra ID admin
    az postgres flexible-server microsoft-entra-admin create \
@@ -131,8 +129,9 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
 3. **Database User**: Must be created as an Entra ID user:
    ```bash
    # Connect to the database using Entra ID token
+   DB_NAME=<name-of-the-database>
    ACCESS_TOKEN=$(az account get-access-token --resource https://ossrdbms-aad.database.windows.net --query accessToken -o tsv)
-   PGPASSWORD=$ACCESS_TOKEN psql "host=your-server.postgres.database.azure.com port=5432 dbname=your-database user=$USER_EMAIL sslmode=require"
+   PGPASSWORD=$ACCESS_TOKEN psql "host=$SERVER_HOST port=5432 dbname=$DB_NAME user=$USER_EMAIL sslmode=require"
    ```
 
    ```sql
@@ -154,6 +153,17 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
 
 4. **Azure Role Assignment**: The identity must have appropriate permissions to access the database:
    - Assign the identity appropriate database roles using the SQL commands above
+
+5. **Repo Setup**: 
+
+   ```bash
+   git clone https://github.com/PatrickChudalla/jclouds.git
+   git clone https://github.com/PatrickChudalla/jclouds-examples.git
+
+   cd ./jclouds/
+   ./mvnw clean install -pl datasource,providers/azure-database -am -DskipTests
+
+   ```
 
 
 ## Requirements for Azure Entra ID Workload Identity Authentication
@@ -187,7 +197,7 @@ az aks create \
 # ... OR enable OIDC issuer withing already existing cluster
 az aks update \
   --resource-group $RESOURCE_GROUP \
-  --name $AKS_NAME \
+  --name $CLUSTER_NAME \
   --enable-oidc-issuer \
   --enable-workload-identity
 
@@ -216,6 +226,7 @@ az postgres flexible-server update \
 ```bash
 # Create the managed identity
 IDENTITY_NAME="jclouds-db-workload-identity"
+
 az identity create \
   --name $IDENTITY_NAME \
   --resource-group $RESOURCE_GROUP \
@@ -301,28 +312,7 @@ az identity federated-credential show \
 
 **Important**: The `subject` must exactly match the format `system:serviceaccount:<namespace>:<service-account-name>`.
 
-### Step 7: Configure Database Firewall
-
-```bash
-# Allow Azure services to access the database
-az postgres flexible-server firewall-rule create \
-  --resource-group $RESOURCE_GROUP \
-  --name $SERVER_NAME \
-  --rule-name AllowAzureServices \
-  --start-ip-address 0.0.0.0 \
-  --end-ip-address 0.0.0.0
-
-# Optional: Add your local IP for testing
-MY_IP=$(curl -s https://api.ipify.org)
-az postgres flexible-server firewall-rule create \
-  --resource-group $RESOURCE_GROUP \
-  --name $SERVER_NAME \
-  --rule-name AllowMyIP \
-  --start-ip-address $MY_IP \
-  --end-ip-address $MY_IP
-```
-
-### Step 8: Deploy Test Pod
+### Step 7: Deploy Test Pod
 
 ```bash
 # Set your database connection details
@@ -356,42 +346,33 @@ EOF
 kubectl wait --for=condition=Ready pod/jclouds-db-test -n $NAMESPACE --timeout=60s
 ```
 
-### Step 9: Install Dependencies in Pod
+### Step 8: Install Dependencies in Pod
 
 ```bash
 # Install git, gradle, and azure-cli
 kubectl exec jclouds-db-test -n $NAMESPACE -- bash -c '
 apt-get update && apt-get install -y git curl unzip
-
-# Install Gradle
-curl -s "https://get.sdkman.io" | bash
-source "$HOME/.sdkman/bin/sdkman-init.sh"
-sdk install gradle 8.5
-
-# Install Azure CLI
-curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 '
 ```
 
-### Step 10: Clone and Build jClouds
+### Step 9: Clone and Build jClouds
 
 ```bash
 # Clone repositories
 kubectl exec jclouds-db-test -n $NAMESPACE -- bash -c '
 cd /root
-git clone https://github.com/apache/jclouds.git
-git clone https://github.com/jclouds/jclouds-examples.git
+git clone https://github.com/PatrickChudalla/jclouds.git
+git clone https://github.com/PatrickChudalla/jclouds-examples.git
 
-# Build jclouds azure-database provider
-cd /root/jclouds
-./gradlew :providers:azure-database:build -x test
 
-# Install to local maven repository
-./gradlew :providers:azure-database:publishToMavenLocal
+cd ./jclouds-examples/
+./mvnw clean install -pl datasource,providers/azure-database -am -DskipTests
+
+cp /root/jclouds-examples/azure-database-example/gradle.properties.template /root/jclouds-examples/azure-database-example/gradle.properties
 '
 ```
 
-### Step 11: Configure and Run Test
+### Step 10: Configure and Run Test
 
 ```bash
 # Configure gradle.properties for workload identity
@@ -407,12 +388,6 @@ EOF
 
 # Run the application
 kubectl exec jclouds-db-test -n $NAMESPACE -- bash -c '
-export AZURE_CLIENT_ID='"$CLIENT_ID"'
-export AZURE_TENANT_ID='"$TENANT_ID"'
-export AZURE_FEDERATED_TOKEN_FILE=/var/run/secrets/azure/tokens/azure-identity-token
-
-cd /root/jclouds-examples
-source "$HOME/.sdkman/bin/sdkman-init.sh"
 ./gradlew :azure-database-example:run -PauthMethod=workload-identity
 '
 ```
