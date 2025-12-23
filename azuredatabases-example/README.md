@@ -147,18 +147,18 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
    GRANT ALL PRIVILEGES ON mydatabase.* TO 'user-or-identity-name@domain.com'@'%';
    ```
 
-3. **Azure Identity**:
+4. **Azure Identity**:
    - **Managed Identity**: Enable system-assigned or user-assigned managed identity on your Azure resource
    - **Workload Identity**: Configure federated identity credentials for your AKS service account
 
-4. **Azure Role Assignment**: The identity must have appropriate permissions to access the database:
+5. **Azure Role Assignment**: The identity must have appropriate permissions to access the database:
    - Assign the identity appropriate database roles using the SQL commands above
 
-5. **Repo Setup**: 
+6. **Repo Setup**: 
 
    ```bash
-   git clone https://github.com/PatrickChudalla/jclouds.git
-   git clone https://github.com/PatrickChudalla/jclouds-examples.git
+   git clone https://github.com/stephaneberle9/jclouds.git
+   git clone https://github.com/stephaneberle9/jclouds-examples.git
 
    cd ./jclouds/
    ./mvnw clean install -pl datasource,providers/azuredatabases -am -DskipTests
@@ -361,11 +361,10 @@ apt-get update && apt-get install -y git curl unzip
 # Clone repositories
 kubectl exec jclouds-db-test -n $NAMESPACE -- bash -c '
 cd /root
-git clone https://github.com/PatrickChudalla/jclouds.git
-git clone https://github.com/PatrickChudalla/jclouds-examples.git
+git clone https://github.com/stephaneberle9/jclouds.git
+git clone https://github.com/stephaneberle9/jclouds-examples.git
 
-
-cd ./jclouds-examples/
+cd ./jclouds/
 ./mvnw clean install -pl datasource,providers/azuredatabases -am -DskipTests
 
 cp /root/jclouds-examples/azuredatabases-example/gradle.properties.template /root/jclouds-examples/azuredatabases-example/gradle.properties
