@@ -23,7 +23,7 @@ Edit `gradle.properties` to set your database connection details, Azure credenti
 
 The application supports multiple authentication methods that can be selected using Gradle project properties.
 
-**IMPORTANT**: Always use the project-specific task notation (`:azure-database-example:run`) to avoid configuration conflicts with other example projects.
+**IMPORTANT**: Always use the project-specific task notation (`:azuredatabases-example:run`) to avoid configuration conflicts with other example projects.
 
 ### Available Authentication Methods
 
@@ -33,10 +33,10 @@ Uses static database username/password authentication without Azure credentials 
 
 ```bash
 # Use default configuration from gradle.properties
-./gradlew :azure-database-example:run
+./gradlew :azuredatabases-example:run
 
 # Or explicitly specify the authentication method
-./gradlew :azure-database-example:run -PauthMethod=direct
+./gradlew :azuredatabases-example:run -PauthMethod=direct
 ```
 
 #### 2. Azure Managed Identity (`managed-identity`)
@@ -47,7 +47,7 @@ Uses Azure Managed Identity to automatically obtain access tokens. This method w
 
 ```bash
 # Run on Azure VM/App Service/Container with Managed Identity
-./gradlew :azure-database-example:run -PauthMethod=managed-identity
+./gradlew :azuredatabases-example:run -PauthMethod=managed-identity
 ```
 
 #### 3. Azure Workload Identity (`workload-identity`)
@@ -58,7 +58,7 @@ Simulates the Azure Workload Identity environment used in Azure Kubernetes Servi
 
 ```bash
 # Run with Workload Identity (typically in AKS)
-./gradlew :azure-database-example:run -PauthMethod=workload-identity
+./gradlew :azuredatabases-example:run -PauthMethod=workload-identity
 ```
 
 ### Configuration
@@ -368,7 +368,7 @@ git clone https://github.com/PatrickChudalla/jclouds-examples.git
 cd ./jclouds-examples/
 ./mvnw clean install -pl datasource,providers/azuredatabases -am -DskipTests
 
-cp /root/jclouds-examples/azure-database-example/gradle.properties.template /root/jclouds-examples/azure-database-example/gradle.properties
+cp /root/jclouds-examples/azuredatabases-example/gradle.properties.template /root/jclouds-examples/azuredatabases-example/gradle.properties
 '
 ```
 
@@ -377,7 +377,7 @@ cp /root/jclouds-examples/azure-database-example/gradle.properties.template /roo
 ```bash
 # Configure gradle.properties for workload identity
 kubectl exec jclouds-db-test -n $NAMESPACE -- bash -c "
-cat > /root/jclouds-examples/azure-database-example/gradle.properties <<EOF
+cat > /root/jclouds-examples/azuredatabases-example/gradle.properties <<EOF
 # Workload Identity Authentication
 workloadIdentity.jdbcUrl=jdbc:postgresql://$DB_HOST:5432/$DB_NAME?sslmode=require
 workloadIdentity.dbUsername=$DB_USER
@@ -388,7 +388,7 @@ EOF
 
 # Run the application
 kubectl exec jclouds-db-test -n $NAMESPACE -- bash -c '
-./gradlew :azure-database-example:run -PauthMethod=workload-identity
+./gradlew :azuredatabases-example:run -PauthMethod=workload-identity
 '
 ```
 

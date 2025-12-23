@@ -18,6 +18,6 @@ Thumbs.db
 # Subproject-specific sensitive configuration (but NOT root gradle.properties)
 aws-s3-example/gradle.properties
 aws-rds-example/gradle.properties
-azure-blob-example/gradle.properties
-azure-database-example/gradle.properties
+azureblob-example/gradle.properties
+azuredatabases-example/gradle.properties
 !**/gradle.properties.template

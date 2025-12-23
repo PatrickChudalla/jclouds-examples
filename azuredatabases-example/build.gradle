@@ -20,10 +20,10 @@ application {
 
 // Authentication methods: Use -PauthMethod=<name> to select authentication method
 // Examples:
-//   ./gradlew :azure-database-example:run -PauthMethod=direct
-//   ./gradlew :azure-database-example:run -PauthMethod=managed-identity
-//   ./gradlew :azure-database-example:run -PauthMethod=workload-identity
-//   ./gradlew :azure-database-example:run (defaults to 'direct')
+//   ./gradlew :azuredatabases-example:run -PauthMethod=direct
+//   ./gradlew :azuredatabases-example:run -PauthMethod=managed-identity
+//   ./gradlew :azuredatabases-example:run -PauthMethod=workload-identity
+//   ./gradlew :azuredatabases-example:run (defaults to 'direct')
 
 run {
     // Skip configuration if this project's run task is not being executed

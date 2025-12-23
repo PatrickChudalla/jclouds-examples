@@ -22,7 +22,7 @@ Edit `gradle.properties` to set your Azure Storage account name, access keys, an
 
 The application supports multiple authentication methods that can be selected using Gradle project properties.
 
-**IMPORTANT**: Always use the project-specific task notation (`:azure-blob-example:run`) to avoid configuration conflicts with other example projects.
+**IMPORTANT**: Always use the project-specific task notation (`:azureblob-example:run`) to avoid configuration conflicts with other example projects.
 
 ### Available Authentication Methods
 
@@ -32,7 +32,7 @@ Uses an Azure Storage connection string which contains both the account name and
 
 ```bash
 # Use configuration from gradle.properties
-./gradlew :azure-blob-example:run -PauthMethod=connectionString
+./gradlew :azureblob-example:run -PauthMethod=connectionString
 ```
 
 #### 2. Account Key (`accountKey`) - Default
@@ -41,10 +41,10 @@ Uses Azure Storage account name and key separately via environment variables.
 
 ```bash
 # Use default account key configuration (default authentication method)
-./gradlew :azure-blob-example:run
+./gradlew :azureblob-example:run
 
 # Or explicitly specify the authentication method
-./gradlew :azure-blob-example:run -PauthMethod=accountKey
+./gradlew :azureblob-example:run -PauthMethod=accountKey
 ```
 
 ### Configuration
@@ -67,13 +67,13 @@ The project includes integration tests that use Azurite (Azure Storage Emulator)
 ### Run all tests
 
 ```bash
-./gradlew :azure-blob-example:test
+./gradlew :azureblob-example:test
 ```
 
 ### Run tests with clean build
 
 ```bash
-./gradlew :azure-blob-example:cleanTest :azure-blob-example:test --rerun-tasks
+./gradlew :azureblob-example:cleanTest :azureblob-example:test --rerun-tasks
 ```
 
 ### Test Configuration
@@ -99,7 +99,7 @@ To enable detailed jClouds and Azure SDK logging for tests, uncomment the releva
 ## Project Structure
 
 ```
-azure-blob-example/
+azureblob-example/
 ├── src/
 │   ├── main/
 │   │   ├── java/

@@ -9,9 +9,9 @@ application {
 
 // Authentication methods: Use -PauthMethod=<name> to select authentication method
 // Examples:
-//   ./gradlew :azure-blob-example:run -PauthMethod=connectionString
-//   ./gradlew :azure-blob-example:run -PauthMethod=accountKey
-//   ./gradlew :azure-blob-example:run (defaults to 'accountKey')
+//   ./gradlew :azureblob-example:run -PauthMethod=connectionString
+//   ./gradlew :azureblob-example:run -PauthMethod=accountKey
+//   ./gradlew :azureblob-example:run (defaults to 'accountKey')
 
 run {
     // Skip configuration if this project's run task is not being executed
