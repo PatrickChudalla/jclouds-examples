@@ -17,7 +17,7 @@ import java.sql.DatabaseMetaData;
 public class JcloudsAzureDatabaseApplication {
 
     // This is the only place where this application refers to a specific cloud provider (Azure in this case)
-    private static final String PROVIDER = "azure-database";
+    private static final String PROVIDER = "azuredatabases";
 
     private static final Logger logger = LoggerFactory.getLogger(JcloudsAzureDatabaseApplication.class.getName());
 

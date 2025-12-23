@@ -161,7 +161,7 @@ Azure Entra ID (formerly Azure AD) authentication allows you to authenticate to 
    git clone https://github.com/PatrickChudalla/jclouds-examples.git
 
    cd ./jclouds/
-   ./mvnw clean install -pl datasource,providers/azure-database -am -DskipTests
+   ./mvnw clean install -pl datasource,providers/azuredatabases -am -DskipTests
 
    ```
 
@@ -366,7 +366,7 @@ git clone https://github.com/PatrickChudalla/jclouds-examples.git
 
 
 cd ./jclouds-examples/
-./mvnw clean install -pl datasource,providers/azure-database -am -DskipTests
+./mvnw clean install -pl datasource,providers/azuredatabases -am -DskipTests
 
 cp /root/jclouds-examples/azure-database-example/gradle.properties.template /root/jclouds-examples/azure-database-example/gradle.properties
 '

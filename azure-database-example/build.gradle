@@ -1,6 +1,6 @@
 dependencies {
-    // Azure Database-specific JClouds provider (includes jclouds-datasource)
-    implementation "org.apache.jclouds.provider:azure-database:$jcloudsVersion"
+    // Azure Databases-specific JClouds provider (includes jclouds-datasource)
+    implementation "org.apache.jclouds.provider:azuredatabases:$jcloudsVersion"
 
     // Azure SDK for Identity and Database management
     implementation platform('com.azure:azure-sdk-bom:1.2.19')
