@@ -30,49 +30,53 @@ public class JcloudsAzureBlobApplication {
             String content = "Hello, jclouds Azure Blob Storage!";
 
             // Read Azure credentials from environment variables
-            String accountName = null;
-            String accountKey = null;
+            String accountName = System.getenv("AZURE_STORAGE_ACCOUNT");
+            String accountKey = System.getenv("AZURE_STORAGE_KEY");
 
-            // Try connection string first
-            String connectionString = System.getenv("AZURE_STORAGE_CONNECTION_STRING");
-            if (connectionString != null && !connectionString.isEmpty()) {
-                // Parse connection string to extract account name and key
-                for (String part : connectionString.split(";")) {
-                    String[] keyValue = part.split("=", 2);
-                    if (keyValue.length == 2) {
-                        if (keyValue[0].equals("AccountName")) {
-                            accountName = keyValue[1];
-                        } else if (keyValue[0].equals("AccountKey")) {
-                            accountKey = keyValue[1];
+            // Try connection string if individual variables are not set
+            if (accountName == null || accountName.isEmpty()) {
+                String connectionString = System.getenv("AZURE_STORAGE_CONNECTION_STRING");
+                if (connectionString != null && !connectionString.isEmpty()) {
+                    // Parse connection string to extract account name and key
+                    for (String part : connectionString.split(";")) {
+                        String[] keyValue = part.split("=", 2);
+                        if (keyValue.length == 2) {
+                            if (keyValue[0].equals("AccountName")) {
+                                accountName = keyValue[1];
+                            } else if (keyValue[0].equals("AccountKey")) {
+                                accountKey = keyValue[1];
+                            }
                         }
                     }
                 }
-            } else {
-                // Fall back to separate environment variables
-                accountName = System.getenv("AZURE_STORAGE_ACCOUNT");
-                accountKey = System.getenv("AZURE_STORAGE_KEY");
             }
 
-            if (accountName == null || accountName.isEmpty()) {
-                throw new IllegalArgumentException("Azure Storage account name not found. Please set AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT environment variable.");
-            }
-            if (accountKey == null || accountKey.isEmpty()) {
-                throw new IllegalArgumentException("Azure Storage account key not found. Please set AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_KEY environment variable.");
-            }
+            // Determine if we have explicit credentials
+            boolean hasExplicitCredentials = (accountName != null && !accountName.isEmpty() &&
+                                             accountKey != null && !accountKey.isEmpty());
 
             logger.info("=== Azure Blob Storage Connection Configuration ===");
             logger.info("- Provider: " + PROVIDER);
-            logger.info("- Account: " + accountName);
             logger.info("- Container: " + containerName);
-            logger.info("- Authentication Method: Account Key");
+            if (hasExplicitCredentials) {
+                logger.info("- Account: " + accountName);
+                logger.info("- Authentication Method: Account Key (explicit credentials provided)");
+                logger.info("- Account Key: " + accountKey.substring(0, Math.min(8, accountKey.length())) + "...");
+            } else {
+                logger.info("- Authentication Method: Ambient Credentials (Azure Identity - Managed Identity, Azure CLI, environment variables, etc.)");
+            }
             logger.info("===================================================");
 
             // Create BlobStore context for Azure Blob Storage
-            // jClouds Azure provider requires explicit credentials (identity = account name, credential = account key)
-            BlobStoreContext blobStoreContext = ContextBuilder.newBuilder(PROVIDER)
-                .credentials(accountName, accountKey)
-                .modules(ImmutableSet.<Module>of(new SLF4JLoggingModule()))
-                .buildView(BlobStoreContext.class);
+            // If no explicit credentials, jClouds will use AzureCredentialsProvider for ambient credentials
+            ContextBuilder contextBuilder = ContextBuilder.newBuilder(PROVIDER)
+                .modules(ImmutableSet.<Module>of(new SLF4JLoggingModule()));
+
+            if (hasExplicitCredentials) {
+                contextBuilder.credentials(accountName, accountKey);
+            }
+
+            BlobStoreContext blobStoreContext = contextBuilder.buildView(BlobStoreContext.class);
             BlobStore blobStore = blobStoreContext.getBlobStore();
 
             // Create container (equivalent to AWS S3 bucket)
