@@ -30,8 +30,8 @@ subprojects {
         implementation "ch.qos.logback:logback-classic:1.4.12"
 
         // Testing dependencies
-        testImplementation "org.testcontainers:testcontainers:1.20.6"
-        testImplementation "org.testcontainers:localstack:1.20.6"
+        testImplementation "org.testcontainers:testcontainers:1.20.4"
+        testImplementation "org.testcontainers:localstack:1.20.4"
         testImplementation "junit:junit:4.13.2"
     }
 

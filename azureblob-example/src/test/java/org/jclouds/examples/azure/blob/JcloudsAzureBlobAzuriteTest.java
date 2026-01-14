@@ -54,16 +54,19 @@ public class JcloudsAzureBlobAzuriteTest {
             Integer port = azurite.getMappedPort(AZURITE_BLOB_PORT);
             String endpoint = String.format("http://%s:%d/%s", host, port, AZURITE_ACCOUNT_NAME);
 
-            logger.info("Azurite endpoint: " + endpoint);
-
             // Uncomment to use manually started Azurite Docker container
             // String endpoint = "http://localhost:10000/devstoreaccount1";
 
-            BlobStoreContext blobStoreContext = ContextBuilder.newBuilder(PROVIDER)
+            // Create BlobStore context for Azurite
+            // Azurite requires explicit credentials (well-known development credentials)
+            ContextBuilder contextBuilder = ContextBuilder.newBuilder(PROVIDER)
                     .endpoint(endpoint)
-                    .credentials(AZURITE_ACCOUNT_NAME, AZURITE_ACCOUNT_KEY)
-                    .modules(ImmutableSet.<Module>of(new SLF4JLoggingModule()))
-                    .buildView(BlobStoreContext.class);
+                    .modules(ImmutableSet.<Module>of(new SLF4JLoggingModule()));
+
+            // For Azurite, we need to provide explicit credentials
+            contextBuilder.credentials(AZURITE_ACCOUNT_NAME, AZURITE_ACCOUNT_KEY);
+
+            BlobStoreContext blobStoreContext = contextBuilder.buildView(BlobStoreContext.class);
             BlobStore blobStore = blobStoreContext.getBlobStore();
 
             String containerName = "testcontainer";
